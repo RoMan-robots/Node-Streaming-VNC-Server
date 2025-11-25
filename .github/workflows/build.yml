@@ -1,3 +1,6 @@
+# File for building addon on Windows machine in GitHub Actions
+# (I have only mac as primary machine and old windows PC, it's faster for me to build here)
+
 name: Windows Addon Build & Artifact
 
 on:
