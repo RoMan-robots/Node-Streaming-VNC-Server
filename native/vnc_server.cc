@@ -124,7 +124,6 @@ private:
   void CleanupDXGI();
   bool AcquireFrame(std::vector<uint8_t> &buffer, int &width, int &height,
                     std::vector<Rect> &dirtyRects);
-  void SendInput(int type, int x, int y, int button, int key);
 
   // WebSocket & RFB Helpers
   bool HandshakeWebSocket(SOCKET clientSocket);
@@ -479,7 +478,7 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
           input.type = INPUT_KEYBOARD;
           input.ki.wVk = vkCode;
           input.ki.dwFlags = downFlag ? 0 : KEYEVENTF_KEYUP;
-          SendInput(1, &input, sizeof(INPUT));
+          ::SendInput(1, &input, sizeof(INPUT));
         }
 #endif
       } break;
@@ -504,7 +503,7 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
         moveInput.mi.dx = normalizedX;
         moveInput.mi.dy = normalizedY;
         moveInput.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
-        SendInput(1, &moveInput, sizeof(INPUT));
+        ::SendInput(1, &moveInput, sizeof(INPUT));
 
         // 2. BUTTONS: Send button state changes
         // Check each button and send DOWN or UP
@@ -515,7 +514,7 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
           btnInput.type = INPUT_MOUSE;
           btnInput.mi.dwFlags =
               (buttonMask & 0x01) ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
-          SendInput(1, &btnInput, sizeof(INPUT));
+          ::SendInput(1, &btnInput, sizeof(INPUT));
         }
 
         // Middle button
@@ -524,7 +523,7 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
           btnInput.type = INPUT_MOUSE;
           btnInput.mi.dwFlags = (buttonMask & 0x02) ? MOUSEEVENTF_MIDDLEDOWN
                                                     : MOUSEEVENTF_MIDDLEUP;
-          SendInput(1, &btnInput, sizeof(INPUT));
+          ::SendInput(1, &btnInput, sizeof(INPUT));
         }
 
         // Right button
@@ -533,7 +532,7 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
           btnInput.type = INPUT_MOUSE;
           btnInput.mi.dwFlags =
               (buttonMask & 0x04) ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
-          SendInput(1, &btnInput, sizeof(INPUT));
+          ::SendInput(1, &btnInput, sizeof(INPUT));
         }
 
         currentClientButtonMask = buttonMask; // Save new state for this client
@@ -871,23 +870,6 @@ bool VncServer::AcquireFrame(std::vector<uint8_t> &buffer, int &width,
   return true;
 }
 
-void VncServer::SendInput(int type, int x, int y, int button, int key) {
-  INPUT input = {0};
-  if (type == 0) { // Mouse
-    input.type = INPUT_MOUSE;
-    input.mi.dx = x * (65535 / this->width);
-    input.mi.dy = y * (65535 / this->height);
-    input.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
-    if (button == 1)
-      input.mi.dwFlags |= MOUSEEVENTF_LEFTDOWN;
-    else if (button == 2)
-      input.mi.dwFlags |= MOUSEEVENTF_LEFTUP;
-  } else { // Keyboard
-    input.type = INPUT_KEYBOARD;
-    input.ki.wVk = key;
-  }
-  ::SendInput(1, &input, sizeof(INPUT));
-}
 #endif
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
