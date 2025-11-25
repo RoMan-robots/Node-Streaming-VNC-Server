@@ -9,7 +9,6 @@ High-performance native Node.js addon that implements a VNC server capable of st
 - **High Performance**: Uses Windows Desktop Duplication API (DXGI) for GPU-accelerated screen capture.
 - **Efficient**: Implements "Dirty Rectangles" detection to only send changed parts of the screen.
 - **Resource Friendly**: Capture loop automatically stops when no clients are connected.
-- **Interactive**: Supports mouse and keyboard input injection via WinAPI.
 - **Standard Protocol**: Compatible with standard VNC clients (RFB) and WebSockets (noVNC).
 
 ## Requirements
@@ -120,7 +119,6 @@ Returns the number of currently connected clients.
 - **Висока продуктивність**: Використовує Windows Desktop Duplication API (DXGI) для захоплення екрана з апаратним прискоренням GPU.
 - **Ефективність**: Реалізує виявлення "брудних прямокутників" (Dirty Rectangles), щоб надсилати лише змінені частини екрана.
 - **Економія ресурсів**: Цикл захоплення автоматично зупиняється, коли немає підключених клієнтів.
-- **Інтерактивність**: Підтримує ін'єкцію вводу миші та клавіатури через WinAPI.
 - **Стандартний протокол**: Сумісний зі стандартними VNC-клієнтами (RFB) та WebSockets (noVNC).
 
 ## Вимоги
@@ -164,9 +162,9 @@ server.on('error', (err) => {
   console.error('Помилка сервера:', err);
 });
 
-async function start() {
+function start() {
   try {
-    await server.start();
+    server.start();
     console.log('VNC Сервер запущено на порту 5902');
   } catch (err) {
     console.error('Не вдалося запустити:', err);
@@ -197,14 +195,11 @@ npm start
 **Параметри:**
 - `port` (number): WebSocket порт для прослуховування.
 - `password` (string, optional): Пароль VNC.
-- `virtualDesktop` (boolean, optional): Увімкнути режим віртуального робочого столу.
-- `width` (number, optional): Ширина віртуального робочого столу.
-- `height` (number, optional): Висота віртуального робочого столу.
 
-#### `start(): Promise<void>`
+#### `start(): void`
 Запускає сервер і починає слухати підключення.
 
-#### `stop(): Promise<void>`
+#### `stop(): void`
 Зупиняє сервер і відключає всіх клієнтів.
 
 #### `setQuality(options: QualityOptions): void`

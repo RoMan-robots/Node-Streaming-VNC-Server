@@ -168,7 +168,7 @@ private:
   ID3D11Device *d3dDevice = nullptr;
   ID3D11DeviceContext *d3dContext = nullptr;
   IDXGIOutputDuplication *dxgiOutputDuplication = nullptr;
-  DXGI_OUTPUT_DESC outputDesc;
+  DXGI_OUTDUPL_DESC outputDuplDesc;
   ID3D11Texture2D *stagingTexture = nullptr;
 #endif
 };
@@ -222,7 +222,13 @@ VncServer::VncServer(const Napi::CallbackInfo &info)
 }
 
 VncServer::~VncServer() {
-  Stop(Napi::CallbackInfo(this->Env(), Napi::CallbackInfo::New(this->Env())));
+  this->running = false;
+  this->captureRunning = false;
+  if (this->networkThread.joinable())
+    this->networkThread.join();
+  if (this->captureThread.joinable())
+    this->captureThread.join();
+
   if (onConnectTsfn)
     onConnectTsfn.Release();
   if (onDisconnectTsfn)
@@ -606,13 +612,12 @@ void VncServer::InitializeDXGI() {
   dxgiOutput->Release();
   dxgiOutput1->DuplicateOutput(d3dDevice, &dxgiOutputDuplication);
   dxgiOutput1->Release();
-  dxgiOutputDuplication->GetDesc(&outputDesc);
+  dxgiOutputDuplication->GetDesc(&outputDuplDesc);
 
   // Update dimensions from DXGI
-  this->width = outputDesc.ModeDesc.Width;
-  this->height = outputDesc.ModeDesc.Height;
+  this->width = outputDuplDesc.ModeDesc.Width;
+  this->height = outputDuplDesc.ModeDesc.Height;
   this->serverFramebuffer.resize(this->width * this->height * 4);
-}
 }
 
 void VncServer::CleanupDXGI() {
