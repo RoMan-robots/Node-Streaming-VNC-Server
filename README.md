@@ -38,8 +38,7 @@ import { VncServer } from './src/main';
 
 const server = new VncServer({
   port: 5902, // WebSocket port for noVNC
-  password: 'password',
-  virtualDesktop: false // Set to true to enable virtual desktop mode (if implemented)
+  password: 'password'
 });
 
 server.on('client-connected', (client) => {
@@ -54,9 +53,9 @@ server.on('error', (err) => {
   console.error('Server error:', err);
 });
 
-async function start() {
+function start() {
   try {
-    await server.start();
+    server.start();
     console.log('VNC Server running on port 5902');
   } catch (err) {
     console.error('Failed to start:', err);
@@ -87,14 +86,11 @@ Creates a new server instance.
 **Options:**
 - `port` (number): The WebSocket port to listen on.
 - `password` (string, optional): VNC password.
-- `virtualDesktop` (boolean, optional): Enable virtual desktop mode.
-- `width` (number, optional): Width for virtual desktop.
-- `height` (number, optional): Height for virtual desktop.
 
-#### `start(): Promise<void>`
+#### `start(): void`
 Starts the server and begins listening for connections.
 
-#### `stop(): Promise<void>`
+#### `stop(): void`
 Stops the server and disconnects all clients.
 
 #### `setQuality(options: QualityOptions): void`
@@ -153,8 +149,7 @@ import { VncServer } from './src/main';
 
 const server = new VncServer({
   port: 5902, // WebSocket порт для noVNC
-  password: 'password',
-  virtualDesktop: false // Встановіть true для режиму віртуального робочого столу (якщо реалізовано)
+  password: 'password'
 });
 
 server.on('client-connected', (client) => {

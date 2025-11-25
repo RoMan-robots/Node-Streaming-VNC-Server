@@ -11,6 +11,7 @@
 #include <vector>
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wincrypt.h>
@@ -145,14 +146,15 @@ private:
   Napi::ThreadSafeFunction onDisconnectTsfn;
   Napi::ThreadSafeFunction onErrorTsfn;
 
-  // Config
+  // Configuration
   int port;
   std::string password;
-  bool virtualDesktop;
-  int width;
-  int height;
 
   std::atomic<int> activeClients;
+
+  // Screen dimensions (set from DXGI)
+  int width = 1920;
+  int height = 1080;
 
   // Framebuffer State (Shared between Capture and Clients)
   std::vector<uint8_t> serverFramebuffer;
@@ -210,23 +212,13 @@ VncServer::VncServer(const Napi::CallbackInfo &info)
   this->password = options.Has("password")
                        ? options.Get("password").As<Napi::String>().Utf8Value()
                        : "";
-  this->virtualDesktop =
-      options.Has("virtualDesktop")
-          ? options.Get("virtualDesktop").As<Napi::Boolean>().Value()
-          : false;
-  this->width = (this->virtualDesktop && options.Has("width"))
-                    ? options.Get("width").As<Napi::Number>().Int32Value()
-                    : 1920;
-  this->height = (this->virtualDesktop && options.Has("height"))
-                     ? options.Get("height").As<Napi::Number>().Int32Value()
-                     : 1080;
 
   this->running = false;
   this->captureRunning = false;
   this->activeClients = 0;
 
-  // Pre-allocate framebuffer
-  this->serverFramebuffer.resize(this->width * this->height * 4);
+  // Pre-allocate framebuffer (default 1920x1080)
+  this->serverFramebuffer.resize(1920 * 1080 * 4);
 }
 
 VncServer::~VncServer() {
@@ -616,12 +608,11 @@ void VncServer::InitializeDXGI() {
   dxgiOutput1->Release();
   dxgiOutputDuplication->GetDesc(&outputDesc);
 
-  // Update W/H if not virtual
-  if (!this->virtualDesktop) {
-    this->width = outputDesc.ModeDesc.Width;
-    this->height = outputDesc.ModeDesc.Height;
-    this->serverFramebuffer.resize(this->width * this->height * 4);
-  }
+  // Update dimensions from DXGI
+  this->width = outputDesc.ModeDesc.Width;
+  this->height = outputDesc.ModeDesc.Height;
+  this->serverFramebuffer.resize(this->width * this->height * 4);
+}
 }
 
 void VncServer::CleanupDXGI() {

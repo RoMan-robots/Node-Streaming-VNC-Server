@@ -5,21 +5,8 @@ export interface VncServerOptions {
      */
     port: number;
     password?: string;
-    /**
-     * Enables the Virtual Desktop mode.
-     * When false (default), the server captures the main physical desktop.
-     * When true, the server activates the virtual desktop implementation.
-     * @default false
-     */
-    virtualDesktop?: boolean;
-    /**
-     * Optional width and height for the virtual desktop.
-     * NOTE: This setting is ignored unless the server is started
-     * in 'virtual desktop' mode.
-     */
-    width?: number;
-    height?: number;
 }
+
 
 export interface QualityOptions {
     /**
