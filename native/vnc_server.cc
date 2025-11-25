@@ -350,7 +350,8 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
 
   // 4. Main Loop
   uint64_t lastFrameSeen = 0;
-  bool updateRequested = true; // Start true to send initial frame
+  bool updateRequested = true;         // Start true to send initial frame
+  uint8_t currentClientButtonMask = 0; // Per-client button state (NOT static!)
 
   while (this->running) {
     // Check for incoming data (RFB messages)
@@ -367,8 +368,14 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
       switch (msgType) {
       case 0: // SetPixelFormat
       {
-        char buf[19];
-        recv(clientSocket, buf, 19, 0);
+        uint8_t buf[19];
+        recv(clientSocket, (char *)buf, 19, 0);
+
+        // RFB SetPixelFormat: [padding:3][pixel-format:16]
+        // pixel-format:
+        // [bpp][depth][big-endian][true-color][r-max:2][g-max:2][b-max:2][r-shift][g-shift][b-shift][padding:3]
+        // We use fixed 32-bit RGBA, so we just acknowledge but don't change
+        // format This shows protocol compliance
       } break;
       case 2: // SetEncodings
       {
@@ -387,15 +394,150 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
       } break;
       case 4: // KeyEvent
       {
-        char buf[7];
-        recv(clientSocket, buf, 7, 0);
-        // TODO: Parse and call SendInput
+        uint8_t buf[7];
+        recv(clientSocket, (char *)buf, 7, 0);
+
+        // RFB KeyEvent: [down-flag][padding:2][key:4]
+        uint8_t downFlag = buf[0];
+        uint32_t keysym =
+            (buf[3] << 24) | (buf[4] << 16) | (buf[5] << 8) | buf[6];
+
+#ifdef _WIN32
+        // Map RFB Keysym to Windows VK code (basic mapping)
+        WORD vkCode = 0;
+
+        // ASCII range (0x20-0x7E)
+        if (keysym >= 0x20 && keysym <= 0x7E) {
+          vkCode = VkKeyScanA((char)keysym) & 0xFF;
+        }
+        // Function keys
+        else if (keysym >= 0xFFBE && keysym <= 0xFFC9) {
+          vkCode = VK_F1 + (keysym - 0xFFBE);
+        }
+        // Special keys
+        else {
+          switch (keysym) {
+          case 0xFF08:
+            vkCode = VK_BACK;
+            break;
+          case 0xFF09:
+            vkCode = VK_TAB;
+            break;
+          case 0xFF0D:
+            vkCode = VK_RETURN;
+            break;
+          case 0xFF1B:
+            vkCode = VK_ESCAPE;
+            break;
+          case 0xFF50:
+            vkCode = VK_HOME;
+            break;
+          case 0xFF51:
+            vkCode = VK_LEFT;
+            break;
+          case 0xFF52:
+            vkCode = VK_UP;
+            break;
+          case 0xFF53:
+            vkCode = VK_RIGHT;
+            break;
+          case 0xFF54:
+            vkCode = VK_DOWN;
+            break;
+          case 0xFF55:
+            vkCode = VK_PRIOR;
+            break; // Page Up
+          case 0xFF56:
+            vkCode = VK_NEXT;
+            break; // Page Down
+          case 0xFF57:
+            vkCode = VK_END;
+            break;
+          case 0xFF63:
+            vkCode = VK_INSERT;
+            break;
+          case 0xFFFF:
+            vkCode = VK_DELETE;
+            break;
+          case 0xFFE1:
+            vkCode = VK_SHIFT;
+            break;
+          case 0xFFE3:
+            vkCode = VK_CONTROL;
+            break;
+          case 0xFFE9:
+            vkCode = VK_MENU;
+            break; // Alt
+          default:
+            vkCode = 0;
+            break;
+          }
+        }
+
+        if (vkCode != 0) {
+          INPUT input = {0};
+          input.type = INPUT_KEYBOARD;
+          input.ki.wVk = vkCode;
+          input.ki.dwFlags = downFlag ? 0 : KEYEVENTF_KEYUP;
+          SendInput(1, &input, sizeof(INPUT));
+        }
+#endif
       } break;
       case 5: // PointerEvent
       {
-        char buf[5];
-        recv(clientSocket, buf, 5, 0);
-        // TODO: Parse and call SendInput
+        uint8_t buf[5];
+        recv(clientSocket, (char *)buf, 5, 0);
+
+        // RFB PointerEvent: [button-mask][x-pos:2][y-pos:2]
+        uint8_t buttonMask = buf[0];
+        uint16_t x = (buf[1] << 8) | buf[2];
+        uint16_t y = (buf[3] << 8) | buf[4];
+
+#ifdef _WIN32
+        // Normalize coordinates to 0-65535 range
+        long normalizedX = (long)x * 65535 / this->width;
+        long normalizedY = (long)y * 65535 / this->height;
+
+        // 1. MOVE: Always send cursor position
+        INPUT moveInput = {0};
+        moveInput.type = INPUT_MOUSE;
+        moveInput.mi.dx = normalizedX;
+        moveInput.mi.dy = normalizedY;
+        moveInput.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
+        SendInput(1, &moveInput, sizeof(INPUT));
+
+        // 2. BUTTONS: Send button state changes
+        // Check each button and send DOWN or UP
+
+        // Left button
+        if ((buttonMask & 0x01) != (currentClientButtonMask & 0x01)) {
+          INPUT btnInput = {0};
+          btnInput.type = INPUT_MOUSE;
+          btnInput.mi.dwFlags =
+              (buttonMask & 0x01) ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
+          SendInput(1, &btnInput, sizeof(INPUT));
+        }
+
+        // Middle button
+        if ((buttonMask & 0x02) != (currentClientButtonMask & 0x02)) {
+          INPUT btnInput = {0};
+          btnInput.type = INPUT_MOUSE;
+          btnInput.mi.dwFlags = (buttonMask & 0x02) ? MOUSEEVENTF_MIDDLEDOWN
+                                                    : MOUSEEVENTF_MIDDLEUP;
+          SendInput(1, &btnInput, sizeof(INPUT));
+        }
+
+        // Right button
+        if ((buttonMask & 0x04) != (currentClientButtonMask & 0x04)) {
+          INPUT btnInput = {0};
+          btnInput.type = INPUT_MOUSE;
+          btnInput.mi.dwFlags =
+              (buttonMask & 0x04) ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
+          SendInput(1, &btnInput, sizeof(INPUT));
+        }
+
+        currentClientButtonMask = buttonMask; // Save new state for this client
+#endif
       } break;
       default:
         // Unknown message, drain buffer
@@ -406,7 +548,16 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
     }
 
     // Check for new frame AND client requested update
+    // THREAD-SAFE: Lock framebuffer mutex to read shared state
     std::unique_lock<std::mutex> lock(this->framebufferMutex);
+
+    // Wait for new frame (max 30ms ~= 30 FPS)
+    this->frameCv.wait_for(lock, std::chrono::milliseconds(30),
+                           [this, &lastFrameSeen, &updateRequested] {
+                             return updateRequested &&
+                                    (this->frameCounter > lastFrameSeen);
+                           });
+
     if (updateRequested && this->frameCounter > lastFrameSeen) {
       // Send update
       SendFrameUpdate(clientSocket, this->currentDirtyRects,
@@ -414,9 +565,7 @@ void VncServer::ClientHandler(uintptr_t socketPtr, std::string id) {
       lastFrameSeen = this->frameCounter;
       updateRequested = false; // Reset until next request
     }
-    lock.unlock();
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // lock auto-unlocks when going out of scope
   }
 
   closesocket(clientSocket);
@@ -580,6 +729,7 @@ void VncServer::CaptureLoop() {
       }
 
       this->frameCounter++;
+      this->frameCv.notify_all(); // Wake up waiting clients
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(33));
