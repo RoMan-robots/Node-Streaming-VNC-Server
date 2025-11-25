@@ -1,0 +1,36 @@
+{
+  "name": "vnc-addon",
+  "version": "1.0.0",
+  "description": "Native Node.js VNC Server Addon",
+  "main": "dist/main.js",
+  "types": "dist/main.d.ts",
+  "scripts": {
+    "build": "tsc && node-gyp rebuild",
+    "build:ts": "tsc",
+    "build:native": "node-gyp rebuild",
+    "start": "node dist/example.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "node-gyp rebuild"
+  },
+  "keywords": [
+    "vnc",
+    "server",
+    "native",
+    "addon",
+    "n-api",
+    "screen-capture",
+    "windows"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bindings": "^1.5.0",
+    "node-addon-api": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "node-gyp": "^10.0.0"
+  },
+  "gypfile": true
+}
