@@ -9,8 +9,7 @@
     "build:ts": "tsc",
     "build:native": "node-gyp rebuild",
     "start": "node dist/example.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "install": "node-gyp rebuild"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "vnc",
